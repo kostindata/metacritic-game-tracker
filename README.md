@@ -42,6 +42,22 @@ docker compose up --build
 - **Сводка не появляется**: проверьте `OPENROUTER_API_KEY` и раздел ошибок в мониторинге.
 - **Сбор прервался**: просто запустите его снова. Он продолжит с того места, где остановился.
 
+## Хостинг на Dockhost
+
+Все сервисы описаны в `dockhost.yaml`.
+
+1. Подключите репозиторий в разделе «Репозитории Git» и дождитесь сборки.
+2. В «Окружение» → «Переменные» задайте `POSTGRES_PASSWORD`, `DATABASE_URL`
+   (`postgresql+psycopg://mc:<пароль>@postgres:5432/mc`) и `OPENROUTER_API_KEY`.
+3. Укажите имя своего проекта в строке `project:` и выполните `dockhost compose apply`.
+
+После каждого push и новой сборки обновите версию образа и примените конфигурацию снова:
+
+```bash
+sed -i "s/metacritic-game-tracker:[0-9a-f]\{40\}/metacritic-game-tracker:$(git rev-parse HEAD)/" dockhost.yaml
+dockhost compose apply
+```
+
 ## Тесты
 
 ```bash

@@ -1,0 +1,136 @@
+# Dockhost project: the same services as docker-compose.yml.
+# Apply with the Dockhost CLI from this folder:  dockhost compose apply
+#
+# Secrets are not stored here. Set them once in the panel («Окружение» → «Переменные»)
+# or with `dockhost environment variable set`:
+#   POSTGRES_PASSWORD   database password
+#   DATABASE_URL        postgresql+psycopg://mc:<POSTGRES_PASSWORD>@postgres:5432/mc
+#   OPENROUTER_API_KEY  key for AI summaries
+#
+# The app image is built by Dockhost from the connected GitHub repository and tagged with
+# the commit hash. After a push (and its build), point the containers at the new build:
+#   sed -i "s/metacritic-game-tracker:[0-9a-f]\{40\}/metacritic-game-tracker:$(git rev-parse HEAD)/" dockhost.yaml
+#   dockhost compose apply
+
+version: 1
+project: my-project   # your Dockhost project name
+
+environment:
+    variables:
+        REDIS_URL: redis://redis:6379/0
+        TIMEZONE: Europe/Moscow
+
+volumes:
+    postgres:
+        type: ssd
+        size: 10Gib
+
+containers:
+
+    postgres:
+        image: postgres:16
+        replicas: 1
+        resources:
+            memory: 1024MiB
+            cpu: 1
+            cpuFraction: 20
+        ports:
+            - 5432
+        variables:
+            POSTGRES_USER: mc
+            POSTGRES_DB: mc
+            POSTGRES_PASSWORD: $POSTGRES_PASSWORD
+            # Postgres will not initialise a non-empty disk root, so keep the data in a subfolder.
+            PGDATA: /var/lib/postgresql/data/pgdata
+        volumes:
+            - name: postgres
+              mountPath: /var/lib/postgresql/data
+
+    redis:
+        image: redis:7-alpine
+        replicas: 1
+        resources:
+            memory: 128MiB
+            cpu: 1
+            cpuFraction: 5
+        ports:
+            - 6379
+
+    # Website. Same name as the container Dockhost created from the repository, so this
+    # updates it instead of adding a second one. Migrations run before every start.
+    metacritic-game-tracker:
+        image: dockhost.io/d46c955a-248f-41b8-a510-f2fbbb9c1e1a/build/metacritic-game-tracker:8e8920bf7a6673c1b3f0733bff6a879a723c4c93
+        replicas: 1
+        resources:
+            memory: 512MiB
+            cpu: 1
+            cpuFraction: 20
+        ports:
+            - 8000
+        variables:
+            DATABASE_URL: $DATABASE_URL
+            REDIS_URL: $REDIS_URL
+            OPENROUTER_API_KEY: $OPENROUTER_API_KEY
+            TIMEZONE: $TIMEZONE
+        cmd:
+            - sh
+            - -c
+            - alembic upgrade head && exec uvicorn app.web.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+
+    # Crawling: one process runs the crawl, the other handles schedule ticks meanwhile.
+    worker-crawl:
+        image: dockhost.io/d46c955a-248f-41b8-a510-f2fbbb9c1e1a/build/metacritic-game-tracker:8e8920bf7a6673c1b3f0733bff6a879a723c4c93
+        replicas: 1
+        resources:
+            memory: 512MiB
+            cpu: 1
+            cpuFraction: 20
+        variables:
+            DATABASE_URL: $DATABASE_URL
+            REDIS_URL: $REDIS_URL
+            OPENROUTER_API_KEY: $OPENROUTER_API_KEY
+            TIMEZONE: $TIMEZONE
+            WORKER_NAME: crawl
+        cmd: [celery, -A, app.worker, worker, -Q, crawl, -c, "2", -n, crawl@%h, --loglevel, INFO]
+
+    # AI summaries.
+    worker-llm:
+        image: dockhost.io/d46c955a-248f-41b8-a510-f2fbbb9c1e1a/build/metacritic-game-tracker:8e8920bf7a6673c1b3f0733bff6a879a723c4c93
+        replicas: 1
+        resources:
+            memory: 384MiB
+            cpu: 1
+            cpuFraction: 10
+        variables:
+            DATABASE_URL: $DATABASE_URL
+            REDIS_URL: $REDIS_URL
+            OPENROUTER_API_KEY: $OPENROUTER_API_KEY
+            TIMEZONE: $TIMEZONE
+            WORKER_NAME: llm
+        cmd: [celery, -A, app.worker, worker, -Q, llm, -c, "2", -n, llm@%h, --loglevel, INFO]
+
+    # Scheduler. Exactly one replica, otherwise every crawl is scheduled twice.
+    beat:
+        image: dockhost.io/d46c955a-248f-41b8-a510-f2fbbb9c1e1a/build/metacritic-game-tracker:8e8920bf7a6673c1b3f0733bff6a879a723c4c93
+        replicas: 1
+        resources:
+            memory: 192MiB
+            cpu: 1
+            cpuFraction: 5
+        variables:
+            DATABASE_URL: $DATABASE_URL
+            REDIS_URL: $REDIS_URL
+            TIMEZONE: $TIMEZONE
+            WORKER_NAME: beat
+        cmd: [celery, -A, app.worker, beat, --loglevel, INFO, -s, /tmp/celerybeat-schedule]
+
+network:
+    domains:
+        site: ~   # free Dockhost subdomain with HTTPS; or `host: example.com` for your own
+
+    routes:
+        site:
+            domain: site
+            service: metacritic-game-tracker   # created automatically for the container
+            port: 8000
+            path: /
