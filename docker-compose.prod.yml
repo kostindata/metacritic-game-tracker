@@ -1,0 +1,61 @@
+# Production additions for a VPS. Use together with the main file:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# - Caddy is the only public entry point (ports 80/443) and gets HTTPS certificates
+#   automatically for SITE_ADDRESS; the app's port 8000 is no longer published.
+# - Postgres and Redis come back after a reboot like the other services.
+# - Container logs are rotated so they cannot fill the disk.
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      # Your domain (HTTPS is set up automatically), or ":80" to serve plain HTTP on the IP.
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+    <<: *logging
+
+  web:
+    ports: !reset []
+    <<: *logging
+
+  postgres:
+    restart: unless-stopped
+    <<: *logging
+
+  redis:
+    restart: unless-stopped
+    <<: *logging
+
+  migrate:
+    <<: *logging
+
+  worker-crawl:
+    <<: *logging
+
+  worker-llm:
+    <<: *logging
+
+  beat:
+    <<: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:

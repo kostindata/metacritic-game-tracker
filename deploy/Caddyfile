@@ -1,0 +1,5 @@
+# SITE_ADDRESS is a domain (Caddy obtains and renews its HTTPS certificate) or ":80".
+{$SITE_ADDRESS} {
+	encode gzip
+	reverse_proxy web:8000
+}

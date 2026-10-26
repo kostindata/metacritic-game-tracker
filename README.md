@@ -42,21 +42,41 @@ docker compose up --build
 - **Сводка не появляется**: проверьте `OPENROUTER_API_KEY` и раздел ошибок в мониторинге.
 - **Сбор прервался**: просто запустите его снова. Он продолжит с того места, где остановился.
 
-## Хостинг на Dockhost
+## Запуск на сервере (VPS)
 
-Все сервисы описаны в `dockhost.yaml`.
+Нужен сервер с Ubuntu, 2 ГБ памяти и 20 ГБ диска. Сайт открывается через Caddy, который сам
+получает HTTPS-сертификат для вашего домена.
 
-1. Подключите репозиторий в разделе «Репозитории Git» и дождитесь сборки.
-2. В «Окружение» → «Переменные» задайте `POSTGRES_PASSWORD`, `DATABASE_URL`
-   (`postgresql+psycopg://mc:<пароль>@postgres:5432/mc`) и `OPENROUTER_API_KEY`.
-3. Укажите имя своего проекта в строке `project:` и выполните `dockhost compose apply`.
+1. Если есть домен, направьте его A-запись на IP сервера.
+2. Подключитесь к серверу (`ssh root@<IP>`) и установите Docker:
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   ```
+3. Скачайте проект и создайте `.env`:
+   ```bash
+   git clone https://github.com/kostindata/metacritic-game-tracker.git /opt/metacritic-game-tracker
+   cd /opt/metacritic-game-tracker
+   cp .env.example .env
+   ```
+   В `.env` раскомментируйте блок «Server (VPS) only» и укажите `OPENROUTER_API_KEY`,
+   `POSTGRES_PASSWORD` (например, из `openssl rand -hex 24`) и `SITE_ADDRESS` — ваш домен
+   или `:80`, чтобы открывать сайт по IP без HTTPS.
+4. Запустите:
+   ```bash
+   docker compose up -d --build
+   ```
+5. Включите ежедневную резервную копию базы (хранятся последние 14 в `backups/`):
+   ```bash
+   (crontab -l 2>/dev/null; echo "0 4 * * * /opt/metacritic-game-tracker/deploy/backup.sh >> /var/log/mc-backup.log 2>&1") | crontab -
+   ```
 
-После каждого push и новой сборки обновите версию образа и примените конфигурацию снова:
+Обновление до новой версии:
 
 ```bash
-sed -i "s/metacritic-game-tracker:[0-9a-f]\{40\}/metacritic-game-tracker:$(git rev-parse HEAD)/" dockhost.yaml
-dockhost compose apply
+cd /opt/metacritic-game-tracker && git pull && docker compose up -d --build
 ```
+
+Восстановление из копии: `zcat backups/<файл>.sql.gz | docker compose exec -T postgres psql -U mc -d mc`.
 
 ## Тесты
 
