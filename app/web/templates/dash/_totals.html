@@ -1,0 +1,7 @@
+<h2>Всего</h2>
+<div class="stats">
+  <div><span class="stat">{{ s.totals.games }}</span><span class="label">игр в базе</span></div>
+  <div><span class="stat">{{ s.totals.llm_ok }}</span><span class="label">ИИ-сводок создано</span></div>
+  <div><span class="stat {{ 'bad' if s.totals.llm_errors else '' }}">{{ s.totals.llm_errors }}</span><span class="label">ошибок ИИ</span></div>
+  <div><span class="stat">{{ s.totals.llm_pending }}</span><span class="label">сводок в работе</span></div>
+</div>

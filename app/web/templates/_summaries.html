@@ -1,0 +1,42 @@
+{# AI review summaries. While any summary is being generated the block re-fetches itself every
+   2 s (hx-trigger) and stops once nothing is pending. #}
+<div id="summaries" class="summaries"
+     {% if generating %}hx-get="/games/{{ game.slug }}/summaries" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+  {% for kind, label in [('critic', 'Критики'), ('user', 'Игроки')] %}
+  {% set s = summaries.get(kind) %}
+  <section class="summary">
+    <header class="summary-head">
+      <h3>{{ label }}</h3>
+      {% if s is not none and (s.likes or s.status in ('pending', 'outdated', 'error')) %}
+      <span class="ai-badge">Сгенерировано ИИ</span>
+      {% endif %}
+    </header>
+
+    {% if s is none or s.status == 'not_enough' %}
+      <p class="muted">Пока недостаточно отзывов</p>
+    {% else %}
+      {% if s.status == 'pending' %}
+        <p class="ai-progress"><span class="spinner" aria-hidden="true"></span>
+          ИИ {{ 'обновляет сводку с учётом новых отзывов' if s.likes else 'анализирует отзывы и готовит сводку' }}…</p>
+      {% elif s.status == 'outdated' %}
+        <p class="muted">{% if ai_enabled %}Сводка будет обновлена с учётом новых отзывов.{% else %}ИИ-сводки отключены: не задан OPENROUTER_API_KEY.{% endif %}</p>
+      {% elif s.status == 'error' %}
+        <p class="error-text">Не удалось создать сводку. Обновите страницу позже, чтобы попробовать снова.</p>
+      {% endif %}
+
+      {% if s.likes or s.dislikes %}
+      <div class="ai-content {{ 'is-stale' if s.status != 'ok' else '' }}">
+        {% if s.overview %}<p class="overview">{{ s.overview }}</p>{% endif %}
+        <div class="likes-dislikes">
+          <div class="pros"><h4>Понравилось</h4><ul>{% for b in s.likes %}<li>{{ b }}</li>{% endfor %}</ul></div>
+          <div class="cons"><h4>Не понравилось</h4><ul>{% for b in s.dislikes %}<li>{{ b }}</li>{% endfor %}</ul></div>
+        </div>
+        <p class="ai-footnote">
+          На основе {{ s.review_count }} {{ s.review_count | plural('отзыва', 'отзывов', 'отзывов') }} · {{ s.summary_generated_at | dt }}
+        </p>
+      </div>
+      {% endif %}
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>

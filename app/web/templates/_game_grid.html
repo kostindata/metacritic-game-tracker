@@ -1,0 +1,29 @@
+{% set qs = "q=" ~ (filters.q|urlencode) ~ "&platform=" ~ (filters.platform|urlencode) ~ "&sort=" ~ filters.sort ~ "&order=" ~ filters.order %}
+<div class="section-head">
+  <h2>Все игры</h2>
+  <span class="count">{{ result.total }} {{ result.total | plural('игра', 'игры', 'игр') }}</span>
+</div>
+{% if result.games %}
+<ul class="tiles">
+  {% for g in result.games %}
+  {% include "_game_card.html" %}
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">{% if not filters.q and not filters.platform %}Игр пока нет. Нажмите «Запустить сбор», чтобы заполнить базу.{% else %}Ничего не найдено. Попробуйте изменить запрос или сбросить фильтры.{% endif %}</p>
+{% endif %}
+{% if result.pages > 1 %}
+{% set p, last = result.page, result.pages %}
+<nav class="pager" hx-target="#results" hx-push-url="true" aria-label="Страницы">
+  {% macro page_link(n, text=None) -%}
+    <a href="/?{{ qs }}&page={{ n }}" hx-get="/?{{ qs }}&page={{ n }}"{% if text %} aria-label="{{ 'Предыдущая' if n < p else 'Следующая' }} страница"{% endif %}>{{ text or n }}</a>
+  {%- endmacro %}
+  {% if p > 1 %}{{ page_link(p - 1, '←') }}{% endif %}
+  {% for n in range(1, last + 1) %}
+    {% if n == p %}<span class="current" aria-current="page">{{ n }}</span>
+    {% elif n == 1 or n == last or (n >= p - 2 and n <= p + 2) %}{{ page_link(n) }}
+    {% elif n == p - 3 or n == p + 3 %}<span class="gap">…</span>{% endif %}
+  {% endfor %}
+  {% if p < last %}{{ page_link(p + 1, '→') }}{% endif %}
+</nav>
+{% endif %}

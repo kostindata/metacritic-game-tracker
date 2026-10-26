@@ -1,0 +1,93 @@
+x-app: &app
+  build: .
+  image: metacritic-game-tracker:latest
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    DATABASE_URL: postgresql+psycopg://mc:mc@postgres:5432/mc
+    REDIS_URL: redis://redis:6379/0
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mc
+      POSTGRES_PASSWORD: mc
+      POSTGRES_DB: mc
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mc -d mc"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    image: metacritic-game-tracker:latest
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://mc:mc@postgres:5432/mc
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    <<: *app
+    command: ["uvicorn", "app.web.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+    ports:
+      - "${WEB_PORT:-8000}:8000"
+
+  # Crawling. Two processes: one runs the crawl while the other handles schedule ticks
+  # immediately (and skips them while a run is active). The Redis lock allows only one run
+  # at a time, and the Redis rate limiter keeps all Metacritic traffic <= 1 request/second.
+  worker-crawl:
+    <<: *app
+    command: ["celery", "-A", "app.worker", "worker", "-Q", "crawl", "-c", "2", "-n", "crawl@%h", "--loglevel", "INFO"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://mc:mc@postgres:5432/mc
+      REDIS_URL: redis://redis:6379/0
+      WORKER_NAME: crawl
+    # Time to finish the current game and save progress on `docker compose stop/up` (default 10 s).
+    stop_grace_period: 90s
+
+  # LLM summaries run separately so slow model calls never block crawling.
+  worker-llm:
+    <<: *app
+    command: ["celery", "-A", "app.worker", "worker", "-Q", "llm", "-c", "2", "-n", "llm@%h", "--loglevel", "INFO"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://mc:mc@postgres:5432/mc
+      REDIS_URL: redis://redis:6379/0
+      WORKER_NAME: llm
+
+  beat:
+    <<: *app
+    command: ["celery", "-A", "app.worker", "beat", "--loglevel", "INFO", "-s", "/tmp/celerybeat-schedule"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://mc:mc@postgres:5432/mc
+      REDIS_URL: redis://redis:6379/0
+      WORKER_NAME: beat
+
+volumes:
+  pgdata:

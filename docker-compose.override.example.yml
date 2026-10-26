@@ -1,0 +1,10 @@
+# Optional. Copy to docker-compose.override.yml (loaded automatically by `docker compose`)
+# if `docker compose up` fails with "all predefined address pools have been fully subnetted".
+# That happens when a VPN installs catch-all routes (e.g. 0.0.0.0/1 + 128.0.0.0/1) that
+# overlap Docker's address pools; a network with an explicit subnet is created anyway.
+# Pick any /24 that no other Docker network on this machine uses.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.18.1.0/24

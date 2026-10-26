@@ -1,0 +1,16 @@
+{% from "_macros.html" import cover, metascore, userscore %}
+{# The title link is stretched over the whole card (CSS ::after), so the whole card is clickable. #}
+<li class="tile">
+  <article class="tile-card">
+    {{ cover(g.cover_url) }}
+    <div class="tile-body">
+      <h3 class="tile-title"><a class="tile-link" href="/games/{{ g.slug }}">{{ g.title }}</a></h3>
+      <p class="tile-meta">{{ g.release_date | d }}</p>
+      <p class="tile-meta" title="{{ g.platforms | map(attribute='platform') | join(', ') }}">{{ g.platforms | map(attribute='platform') | join(', ') }}</p>
+      <div class="tile-scores">
+        <span class="score-label">{{ metascore(g.best_metascore, "score-sm") }} Критики</span>
+        <span class="score-label">{{ userscore(g.best_user_score, "score-sm") }} Игроки</span>
+      </div>
+    </div>
+  </article>
+</li>

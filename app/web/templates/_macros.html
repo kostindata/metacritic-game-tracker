@@ -1,0 +1,17 @@
+{# Cover image with a "TBD" placeholder underneath: visible when there is no image URL,
+   while the image loads, or when it fails to load (the <img> removes itself). #}
+{% macro cover(url, alt="", extra_class="", eager=false) -%}
+<div class="cover {{ extra_class }}">
+  <span class="cover-tbd" aria-hidden="true">TBD</span>
+  {%- if url %}<img src="{{ url }}" alt="{{ alt }}" {% if eager %}fetchpriority="high"{% else %}loading="lazy"{% endif %} decoding="async" onerror="this.remove()">{% endif %}
+</div>
+{%- endmacro %}
+
+{# Metascore: square; user score: circle. "tbd" when there is no score yet. #}
+{% macro metascore(value, size="") -%}
+<span class="score {{ size }} {{ value | score_class }}" title="Metascore">{{ value if value is not none else 'tbd' }}</span>
+{%- endmacro %}
+
+{% macro userscore(value, size="") -%}
+<span class="score user {{ size }} {{ value | score_class('user') }}" title="Оценка игроков">{{ ('10' if value >= 10 else '%.1f' % value) if value is not none else 'tbd' }}</span>
+{%- endmacro %}

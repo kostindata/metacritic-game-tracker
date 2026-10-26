@@ -1,0 +1,21 @@
+<h2>Последние ошибки <span class="muted">{{ s.errors | length }}</span></h2>
+{% if s.errors %}
+<div class="table-wrap">
+<table class="errors">
+  <thead><tr><th>Когда</th><th>Игра</th><th>Этап</th><th>Сообщение</th><th>Запуск</th></tr></thead>
+  <tbody>
+  {% for e in s.errors %}
+    <tr>
+      <td title="{{ e.created_at | dt }}">{{ e.created_at | ago }}</td>
+      <td>{% if e.game_slug %}<a href="https://www.metacritic.com/game/{{ e.game_slug }}/" target="_blank" rel="noopener">{{ e.game_slug }}</a>{% else %}—{% endif %}</td>
+      <td>{{ e.stage | label }}</td>
+      <td class="msg">{{ e.message }}</td>
+      <td>{{ ('№' ~ e.run_id) if e.run_id else '—' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">Ошибок нет.</p>
+{% endif %}

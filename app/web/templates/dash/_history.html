@@ -1,0 +1,24 @@
+<h2>Последние запуски</h2>
+{% if s.history %}
+<div class="table-wrap">
+<table>
+  <thead><tr><th>№</th><th>Статус</th><th>Запуск</th><th>Начат</th><th class="num">Длительность</th><th class="num">Обработано</th><th class="num">Новых</th><th class="num">Обновлено</th><th class="num">Ошибок</th><th>Примечание</th></tr></thead>
+  <tbody>
+  {% for r in s.history %}
+    <tr>
+      <td>{{ r.id }}</td>
+      <td><span class="status status-{{ r.status }}">{{ r.status | label }}</span></td>
+      <td>{{ r.trigger | label }}</td>
+      <td>{{ r.started_at | dt }}</td>
+      <td class="num">{{ r | duration }}</td>
+      <td class="num">{{ r.processed }}</td><td class="num">{{ r.inserted }}</td><td class="num">{{ r.updated }}</td>
+      <td class="num">{{ r.failed }}</td>
+      <td class="muted">{{ r.note | label if r.note else '' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<p class="muted">Завершённых запусков пока нет.</p>
+{% endif %}

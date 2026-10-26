@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Мониторинг{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>Мониторинг</h1>
+  <span class="live"><span class="live-dot" aria-hidden="true"></span>Обновляется автоматически</span>
+</div>
+<div class="dash" hx-ext="sse" sse-connect="/dashboard/stream">
+  <section class="panel" id="sec-run" sse-swap="run">{% include "dash/_run.html" %}</section>
+  <section class="panel" id="sec-workers" sse-swap="workers">{% include "dash/_workers.html" %}</section>
+  <section class="panel" id="sec-today" sse-swap="today">{% include "dash/_today.html" %}</section>
+  <section class="panel" id="sec-totals" sse-swap="totals">{% include "dash/_totals.html" %}</section>
+  <section class="panel wide" id="sec-history" sse-swap="history">{% include "dash/_history.html" %}</section>
+  <section class="panel wide" id="sec-errors" sse-swap="errors">{% include "dash/_errors.html" %}</section>
+</div>
+{% endblock %}

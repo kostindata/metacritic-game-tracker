@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "_macros.html" import cover, metascore, userscore %}
+{% block title %}{{ game.title }}{% endblock %}
+{% block content %}
+<a class="back" href="/">← Все игры</a>
+
+<article>
+  <header class="hero">
+    {{ cover(game.cover_url, "Обложка: " ~ game.title, "large", eager=true) }}
+    <div>
+      <h1>{{ game.title }}</h1>
+      {% if game.genres %}
+      <div class="chips">{% for g in game.genres %}<span class="chip">{{ g }}</span>{% endfor %}</div>
+      {% endif %}
+
+      <div class="score-cards">
+        <div class="score-card">
+          {{ metascore(game.best_metascore) }}
+          <div class="score-card-text"><strong>Критики</strong>
+            <span>Metascore · {{ game.critic_review_total }} {{ game.critic_review_total | plural('рецензия', 'рецензии', 'рецензий') }}</span></div>
+        </div>
+        <div class="score-card">
+          {{ userscore(game.best_user_score) }}
+          <div class="score-card-text"><strong>Игроки</strong>
+            <span>{{ game.user_review_total }} {{ game.user_review_total | plural('оценка', 'оценки', 'оценок') }}</span></div>
+        </div>
+      </div>
+
+      <dl class="facts">
+        <dt>Дата выхода</dt><dd>{{ game.release_date | d }}</dd>
+        <dt>Платформы</dt><dd>{{ game.platforms | map(attribute='platform') | join(', ') or '—' }}</dd>
+        <dt>Разработчик</dt><dd>{{ game.developers | join(', ') or '—' }}</dd>
+        <dt>Издатель</dt><dd>{{ game.publishers | join(', ') or '—' }}</dd>
+        <dt>На Metacritic</dt><dd><a href="{{ game.url }}" rel="noopener" target="_blank">Открыть страницу игры ↗</a></dd>
+        <dt>Добавлена в базу</dt><dd>{{ game.first_seen_at | dt }}</dd>
+        <dt>Данные обновлены</dt><dd>{{ game.last_crawled_at | dt }}</dd>
+      </dl>
+    </div>
+  </header>
+
+  <section class="section">
+    <h2>Сводка отзывов</h2>
+    {% include "_summaries.html" %}
+  </section>
+
+  <section class="section">
+    <h2>Оценки по платформам</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Платформа</th><th>Metascore</th><th class="num">Рецензий</th><th>Оценка игроков</th><th class="num">Оценок</th><th class="num">Дата выхода</th></tr></thead>
+      <tbody>
+      {% for p in game.platforms %}
+        <tr>
+          <td>{{ p.platform }}</td>
+          <td>{{ metascore(p.metascore, "score-sm") }}</td>
+          <td class="num">{{ p.critic_review_count }}</td>
+          <td>{{ userscore(p.user_score, "score-sm") }}</td>
+          <td class="num">{{ p.user_review_count }}</td>
+          <td class="num">{{ p.release_date | d }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  {% if game.description %}
+  <section class="section">
+    <h2>Об игре</h2>
+    <div class="description">{{ game.description }}</div>
+  </section>
+  {% endif %}
+
+  {% if game.video_url %}
+  <section class="section">
+    <h2>Трейлер</h2>
+    {% set media_id = game.video_url | jw_media_id %}
+    {% if media_id %}
+    {# The player (and its scripts) loads only when the visitor presses play. #}
+    <div class="video">
+      <button type="button" class="video-facade" data-src="{{ game.video_url }}" data-title="Трейлер: {{ game.title }}">
+        <img src="https://cdn.jwplayer.com/v2/media/{{ media_id }}/poster.jpg?width=720" alt="" loading="lazy" onerror="this.remove()">
+        <span class="video-play"><span aria-hidden="true">▶</span> Смотреть трейлер</span>
+      </button>
+    </div>
+    <script>
+      document.currentScript.previousElementSibling.querySelector(".video-facade").addEventListener("click", (e) => {
+        const btn = e.currentTarget, frame = document.createElement("iframe");
+        frame.src = btn.dataset.src; frame.title = btn.dataset.title;
+        frame.allow = "autoplay; fullscreen"; frame.allowFullscreen = true;
+        btn.replaceWith(frame);
+      });
+    </script>
+    {% endif %}
+    <a class="video-link" href="{{ game.video_url }}" target="_blank" rel="noopener">Открыть видео в новой вкладке ↗</a>
+  </section>
+  {% endif %}
+
+  <section class="section">
+    <h2>Похожие игры</h2>
+    {% if similar %}
+    <ul class="tiles">
+      {% for g, score in similar %}{% include "_game_card.html" %}{% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">Похожих игр в базе пока нет.</p>
+    {% endif %}
+  </section>
+</article>
+{% endblock %}

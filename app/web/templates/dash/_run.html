@@ -1,0 +1,26 @@
+<h2>Текущий сбор</h2>
+{% set r = s.current %}
+{% if r %}
+  {% set done = r.processed + r.failed %}
+  <div class="progress-row">
+    <span class="big">{{ done }} из {{ r.target }}</span>
+    <span class="status status-{{ r.status }}">{{ r.status | label }}</span>
+    {% if s.orphaned %}<span class="status status-error">воркер не отвечает</span>{% endif %}
+  </div>
+  <div class="meter" role="progressbar" aria-label="Прогресс сбора" aria-valuemin="0" aria-valuemax="{{ r.target }}" aria-valuenow="{{ done }}">
+    <span style="width: {{ (100 * done / r.target) | round(1) if r.target else 0 }}%"></span>
+  </div>
+  <dl class="kv">
+    <dt>Сейчас обрабатывается</dt><dd>{{ r.current_game or '—' }}</dd>
+    <dt>Запуск</dt><dd>№{{ r.id }}, {{ r.trigger | label }}</dd>
+    <dt>Начат</dt><dd>{{ r.started_at | dt if r.started_at else 'ожидает свободного воркера…' }}</dd>
+    {% if r.skipped %}<dt>Пропущено</dt><dd>{{ r.skipped }} (уже обработаны сегодня)</dd>{% endif %}
+    {% if s.orphaned %}<dt>Примечание</dt><dd class="muted">Воркер был остановлен во время сбора. Запуск закроется автоматически в течение пары минут, а следующий продолжит с этого места.</dd>{% endif %}
+  </dl>
+{% else %}
+  <p class="muted" style="margin: 0 0 14px">Сейчас ничего не собирается.</p>
+{% endif %}
+<dl class="kv" style="margin-top: 14px">
+  <dt>Следующий запуск</dt><dd>{{ s.schedule.next_run | dt }} <span class="muted">({{ s.schedule.next_run | ago }})</span></dd>
+  <dt>Сброс дня</dt><dd>{{ s.schedule.next_reset | dt }}</dd>
+</dl>

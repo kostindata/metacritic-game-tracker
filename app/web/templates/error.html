@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ message }}{% endblock %}
+{% block content %}
+<div class="empty">
+  <h1>{{ message }}</h1>
+  <p>{% if status == 404 %}Возможно, ссылка устарела или игра ещё не попала в базу.{% else %}Попробуйте обновить страницу чуть позже.{% endif %}</p>
+  <a class="btn" href="/">Ко всем играм</a>
+</div>
+{% endblock %}

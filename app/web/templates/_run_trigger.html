@@ -1,0 +1,7 @@
+{% if result is none %}
+<span class="flash flash-err">Не удалось запустить сбор: сервис очереди недоступен</span>
+{% elif result.started %}
+<span class="flash flash-ok">Сбор запущен (№{{ result.run_id }})</span>
+{% else %}
+<span class="flash flash-warn">Сбор уже идёт{% if result.run_id %} (№{{ result.run_id }}){% endif %}</span>
+{% endif %}

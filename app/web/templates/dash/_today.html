@@ -1,0 +1,11 @@
+<h2>Сегодня <span class="muted">{{ s.today.day | d }}</span></h2>
+<div class="stats">
+  <div><span class="stat">{{ s.today.processed }}</span><span class="label">обработано игр</span></div>
+  <div><span class="stat">{{ s.today.inserted }}</span><span class="label">новых</span></div>
+  <div><span class="stat">{{ s.today.updated }}</span><span class="label">обновлено</span></div>
+  <div><span class="stat {{ 'bad' if s.today.failures else '' }}">{{ s.today.failures }}</span><span class="label">ошибок</span></div>
+</div>
+<dl class="kv" style="margin-top: 16px">
+  <dt>Позиция в каталоге</dt><dd>{{ s.today.cursor }}</dd>
+  <dt>Запусков за день</dt><dd>{{ s.today.runs }}</dd>
+</dl>

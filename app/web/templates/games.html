@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Игры{% endblock %}
+{% block content %}
+{% if new_releases %}
+<section class="carousel" aria-labelledby="new-releases-title">
+  <div class="section-head">
+    <h2 id="new-releases-title">Новинки</h2>
+    <span class="count">{{ new_releases | length }} {{ new_releases | length | plural('игра', 'игры', 'игр') }}</span>
+    <div class="actions">
+      <button type="button" class="carousel-btn" data-dir="-1" aria-label="Предыдущие игры"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M13 8H3M7 4 3 8l4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button type="button" class="carousel-btn" data-dir="1" aria-label="Следующие игры"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </div>
+  <ul class="carousel-track" tabindex="0" aria-label="Новинки">
+    {% for g in new_releases %}{% include "_game_card.html" %}{% endfor %}
+  </ul>
+</section>
+<script>
+  (function () {
+    const root = document.currentScript.previousElementSibling;
+    const track = root.querySelector(".carousel-track");
+    const [prev, next] = root.querySelectorAll(".carousel-btn");
+    const update = () => {
+      prev.disabled = track.scrollLeft <= 4;  // tolerate padding / snap rounding
+      next.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+    };
+    root.querySelectorAll(".carousel-btn").forEach((btn) =>
+      btn.addEventListener("click", () =>
+        track.scrollBy({ left: Number(btn.dataset.dir) * track.clientWidth * 0.9, behavior: "smooth" })));
+    track.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    update();
+  })();
+</script>
+{% endif %}
+
+<form class="filters" hx-get="/" hx-target="#results" hx-push-url="true"
+      hx-trigger="submit, input changed delay:300ms from:input[name=q], change from:select" role="search">
+  <label class="field field-search">
+    <span class="field-label">Поиск</span>
+    <input type="search" name="q" value="{{ filters.q }}" placeholder="Название игры" autocomplete="off">
+  </label>
+  <label class="field">
+    <span class="field-label">Платформа</span>
+    <select name="platform">
+      <option value="">Все платформы</option>
+      {% for p in platforms %}<option value="{{ p }}" {% if p == filters.platform %}selected{% endif %}>{{ p }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field">
+    <span class="field-label">Сортировка</span>
+    <select name="sort">
+      <option value="release" {% if filters.sort == 'release' %}selected{% endif %}>Дата выхода</option>
+      <option value="metascore" {% if filters.sort == 'metascore' %}selected{% endif %}>Metascore</option>
+      <option value="userscore" {% if filters.sort == 'userscore' %}selected{% endif %}>Оценка игроков</option>
+      <option value="title" {% if filters.sort == 'title' %}selected{% endif %}>Название</option>
+    </select>
+  </label>
+  <label class="field">
+    <span class="field-label">Порядок</span>
+    <select name="order">
+      <option value="desc" {% if filters.order == 'desc' %}selected{% endif %}>По убыванию</option>
+      <option value="asc" {% if filters.order == 'asc' %}selected{% endif %}>По возрастанию</option>
+    </select>
+  </label>
+  <a class="filters-reset" href="/" title="Сбросить поиск, фильтр и сортировку">Сбросить</a>
+  <noscript><button class="btn">Применить</button></noscript>
+</form>
+<div id="results">{% include "_game_grid.html" %}</div>
+{% endblock %}

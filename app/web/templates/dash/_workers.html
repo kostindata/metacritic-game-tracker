@@ -1,0 +1,19 @@
+<h2>Воркеры <span class="muted">{{ s.workers | length }}</span></h2>
+{% if s.workers %}
+<ul class="workers">
+  {% for w in s.workers %}
+  <li>
+    <div class="worker-top"><strong>{{ w.name | label | ucfirst }}</strong><span class="status status-{{ w.status }}">{{ w.status | label }}</span></div>
+    <div class="worker-task">
+      {% if w.task %}{{ w.task }}{% if w.detail %}: {{ w.detail }}{% endif %}
+      {% elif w.error %}<span class="error-text">{{ w.error }}</span>
+      {% elif w.detail %}{{ w.detail }}
+      {% else %}Ожидает задач{% endif %}
+    </div>
+    <div class="worker-meta">{{ w.id }} · последний сигнал {{ w.heartbeat | ago }}</div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">Нет активных воркеров{% if s.lock_held is none %} (Redis недоступен){% endif %}.</p>
+{% endif %}
