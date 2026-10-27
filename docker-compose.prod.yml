@@ -22,10 +22,12 @@ services:
       - "443:443"
       - "443:443/udp"
     environment:
-      # Your domain (HTTPS is set up automatically), or ":80" to serve plain HTTP on the IP.
+      # Your domain (HTTPS is set up automatically), the server IP with CADDYFILE=Caddyfile.ip
+      # (HTTPS on the IP), or ":80" to serve plain HTTP.
       SITE_ADDRESS: ${SITE_ADDRESS:-:80}
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Caddyfile (domain or :80) or Caddyfile.ip (HTTPS on the bare IP address)
+      - ./deploy/${CADDYFILE:-Caddyfile}:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

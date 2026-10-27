@@ -1,0 +1,17 @@
+# HTTPS for a server without a domain: SITE_ADDRESS is the server's IP address.
+# Let's Encrypt issues IP certificates only with its 6-day "shortlived" profile;
+# Caddy renews them automatically. Selected with CADDYFILE=Caddyfile.ip in .env.
+{
+	# Browsers send no server name (SNI) when connecting to an IP; use this site's certificate.
+	default_sni {$SITE_ADDRESS}
+}
+
+{$SITE_ADDRESS} {
+	tls {
+		issuer acme {
+			profile shortlived
+		}
+	}
+	encode gzip
+	reverse_proxy web:8000
+}

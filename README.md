@@ -59,8 +59,11 @@ docker compose up --build
    cp .env.example .env
    ```
    В `.env` раскомментируйте блок «Server (VPS) only» и укажите `OPENROUTER_API_KEY`,
-   `POSTGRES_PASSWORD` (например, из `openssl rand -hex 24`) и `SITE_ADDRESS` — ваш домен
-   или `:80`, чтобы открывать сайт по IP без HTTPS.
+   `POSTGRES_PASSWORD` (например, из `openssl rand -hex 24`) и `SITE_ADDRESS`:
+   - ваш домен — сайт откроется по HTTPS;
+   - IP сервера вместе с `CADDYFILE=Caddyfile.ip` — HTTPS без домена (Let's Encrypt выдаёт
+     сертификат на IP-адрес на 6 дней, Caddy продлевает его сам);
+   - `:80` — обычный HTTP по IP.
 4. Запустите:
    ```bash
    docker compose up -d --build
