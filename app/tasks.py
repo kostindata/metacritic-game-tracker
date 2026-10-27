@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+from app import covers
 from app.config import get_settings
 from app.crawler.runner import CrawlRunner, apply_daily_reset
 from app.crawler.service import close_orphaned_runs, reserve_run
@@ -47,6 +48,8 @@ def _execute_run(run_id: int, lock_token: str) -> dict:
         notify("run", run_id=run_id)
         # New and updated games change who is similar to whom.
         refresh_similar_games.apply_async()
+        # Covers whose download failed or was interrupted (e.g. by a restart).
+        backfill_covers.apply_async()
 
 
 @celery_app.task(name="app.tasks.run_crawl")
@@ -103,3 +106,21 @@ def refresh_similar_games() -> dict:
     with session_scope() as s:
         games = refresh_similar(s)
     return {"games": games}
+
+
+COVERS_PER_BACKFILL = 300  # about 5 minutes at one request per second
+COVERS_LOCK_KEY = "mc:lock:covers"
+
+
+@celery_app.task(name="app.tasks.backfill_covers")
+def backfill_covers() -> dict:
+    """Download missing cover images (after each crawl run). One at a time: the lock expires on
+    its own if the worker dies mid-way."""
+    redis = get_redis()
+    if not redis.set(COVERS_LOCK_KEY, "1", nx=True, ex=30 * 60):
+        return {"status": "skipped", "reason": "already running"}
+    try:
+        stored, failed = covers.backfill(limit=COVERS_PER_BACKFILL)
+    finally:
+        redis.delete(COVERS_LOCK_KEY)
+    return {"stored": stored, "failed": failed}

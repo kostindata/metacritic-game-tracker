@@ -35,6 +35,7 @@ celery_app.conf.update(
         "app.tasks.daily_reset": {"queue": "crawl"},
         "app.tasks.cleanup_runs": {"queue": "crawl"},
         "app.tasks.refresh_similar_games": {"queue": "crawl"},
+        "app.tasks.backfill_covers": {"queue": "crawl"},
         "app.tasks.summarize_game": {"queue": "llm"},
     },
     beat_schedule=beat_schedule(settings),
@@ -52,6 +53,7 @@ TASK_NAMES = {
     "daily_reset": "ежедневный сброс",
     "cleanup_runs": "проверка зависших запусков",
     "refresh_similar_games": "пересчёт похожих игр",
+    "backfill_covers": "загрузка обложек",
 }
 
 

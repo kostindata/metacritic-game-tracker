@@ -84,22 +84,31 @@ def ensure_cover(client, covers_dir: Path, url: str | None) -> str | None:
     return existing_file(covers_dir, url) or save(covers_dir, url, client.get_bytes(url, max_bytes=MAX_BYTES))
 
 
-def backfill(limit: int | None = None) -> tuple[int, int]:
-    """Download covers for games that have a cover URL but no stored copy. Returns (ok, failed)."""
+def backfill(limit: int | None = None, client=None) -> tuple[int, int]:
+    """Download covers for games that have a cover URL but no stored copy. Returns (ok, failed).
+
+    Newest games first, as they are the ones people open. `client` is for tests; by default a
+    Metacritic client sharing the global rate limiter is used.
+    """
     from sqlalchemy import select, update
 
     from app.config import get_settings
     from app.db import session_scope
     from app.models import Game
-    from app.monitoring import get_redis
-    from app.scraper.client import MetacriticClient, RedisRateLimiter
 
     settings = get_settings()
     covers_dir = Path(settings.covers_dir)
     with session_scope() as s:
         stmt = select(Game.id, Game.cover_url).where(Game.cover_url.is_not(None), Game.cover_file.is_(None))
-        rows = s.execute(stmt.order_by(Game.id).limit(limit)).all()
-    client = MetacriticClient(settings, RedisRateLimiter(get_redis(), settings.request_interval_seconds))
+        rows = s.execute(stmt.order_by(Game.release_date.desc().nulls_last(), Game.id.desc()).limit(limit)).all()
+    if not rows:
+        return 0, 0
+    own_client = client is None
+    if own_client:
+        from app.monitoring import get_redis
+        from app.scraper.client import MetacriticClient, RedisRateLimiter
+
+        client = MetacriticClient(settings, RedisRateLimiter(get_redis(), settings.request_interval_seconds))
     ok = failed = 0
     try:
         for game_id, url in rows:
@@ -115,7 +124,8 @@ def backfill(limit: int | None = None) -> tuple[int, int]:
             if ok % 50 == 0:
                 log.info("covers.backfill_progress", done=ok, failed=failed, total=len(rows))
     finally:
-        client.close()
+        if own_client:
+            client.close()
     log.info("covers.backfill_done", stored=ok, failed=failed)
     return ok, failed
 

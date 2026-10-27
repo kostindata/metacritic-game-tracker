@@ -321,3 +321,60 @@ def test_failed_cover_download_keeps_the_game(sessions, tmp_path, monkeypatch):
         game = s.scalar(select(Game).where(Game.slug == "abyss-ring"))
         assert game.cover_file is None and game.cover_url.endswith("y.jpg")
         assert s.scalar(select(CrawlError.stage)) == "cover"
+
+
+def test_backfill_fills_missing_covers_newest_first(sessions, tmp_path, monkeypatch):
+    from app import covers
+    from app.config import get_settings
+
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+
+    class FakeMetacritic:
+        urls: list[str] = []
+
+        def get_bytes(self, url, max_bytes):
+            FakeMetacritic.urls.append(url)
+            if url.endswith("broken.jpg"):
+                return b"<html>blocked</html>"
+            return jpeg
+
+    monkeypatch.setenv("COVERS_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    base = "https://www.metacritic.com/a/img/catalog/"
+    with sessions.begin() as s:
+        for slug, released, cover in [("old", date(2020, 1, 1), "old.jpg"), ("new", date(2026, 10, 1), "new.jpg"),
+                                      ("broken", date(2025, 1, 1), "broken.jpg"), ("none", date(2026, 1, 1), None)]:
+            d = detail(slug)
+            d.release_date, d.cover_url = released, cover and base + cover
+            upsert_game(s, d, NOW)
+    assert covers.backfill(limit=10, client=FakeMetacritic()) == (2, 1)
+    assert [u.rsplit("/", 1)[1] for u in FakeMetacritic.urls] == ["new.jpg", "broken.jpg", "old.jpg"]
+    with sessions() as s:
+        stored = dict(s.execute(select(Game.slug, Game.cover_file)).all())
+    assert stored["new"] and stored["old"] and stored["broken"] is None and stored["none"] is None
+    assert covers.backfill(limit=10, client=FakeMetacritic()) == (0, 1)  # only the failed one is retried
+
+
+def test_backfill_task_runs_one_at_a_time(monkeypatch):
+    from app import tasks
+
+    class FakeRedis:
+        def __init__(self):
+            self.keys = {}
+
+        def set(self, key, value, nx=False, ex=None):
+            if nx and key in self.keys:
+                return None
+            self.keys[key] = value
+            return True
+
+        def delete(self, key):
+            self.keys.pop(key, None)
+
+    redis = FakeRedis()
+    monkeypatch.setattr(tasks, "get_redis", lambda: redis)
+    monkeypatch.setattr(tasks.covers, "backfill", lambda limit: (3, 1))
+    assert tasks.backfill_covers.run() == {"stored": 3, "failed": 1}
+    assert tasks.COVERS_LOCK_KEY not in redis.keys  # released afterwards
+    redis.keys[tasks.COVERS_LOCK_KEY] = "1"
+    assert tasks.backfill_covers.run()["status"] == "skipped"
