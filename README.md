@@ -70,11 +70,19 @@ docker compose up --build
    (crontab -l 2>/dev/null; echo "0 4 * * * /opt/metacritic-game-tracker/deploy/backup.sh >> /var/log/mc-backup.log 2>&1") | crontab -
    ```
 
-Обновление до новой версии:
+6. Включите автоматическое обновление: каждые 5 минут сервер проверяет ветку `main` на GitHub
+   и, если появились новые коммиты, собирает новую версию и запускает тесты. Новая версия
+   заменяет работающую, только если тесты прошли:
+   ```bash
+   cp deploy/mc-update.service deploy/mc-update.timer /etc/systemd/system/
+   systemctl daemon-reload && systemctl enable --now mc-update.timer
+   ```
+   Журнал обновлений: `journalctl -u mc-update`. Обновить вручную прямо сейчас:
+   `deploy/update.sh --force`.
 
-```bash
-cd /opt/metacritic-game-tracker && git pull && docker compose up -d --build
-```
+На сервере с маленьким диском (10 ГБ) добавьте в `.env` `INSTALL_PLAYWRIGHT=false` и
+`PLAYWRIGHT_ENABLED=false`: образ станет меньше на 1,3 ГБ. Этот запасной браузер нужен, только
+если Metacritic отдаёт страницу без данных.
 
 Восстановление из копии: `zcat backups/<файл>.sql.gz | docker compose exec -T postgres psql -U mc -d mc`.
 

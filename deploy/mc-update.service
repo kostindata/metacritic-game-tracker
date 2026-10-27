@@ -1,0 +1,8 @@
+[Unit]
+Description=Deploy new commits of metacritic-game-tracker
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/metacritic-game-tracker/deploy/update.sh
