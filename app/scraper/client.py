@@ -165,6 +165,13 @@ class MetacriticClient:
         except ValueError as exc:
             raise FetchError(f"invalid JSON from {url}") from exc
 
+    def get_bytes(self, url: str, max_bytes: int) -> bytes:
+        """A binary resource (cover image); same retries and rate limit as pages."""
+        content = self._request(url, accept="image/avif,image/webp,image/*;q=0.8").content
+        if len(content) > max_bytes:
+            raise FetchError(f"{url} is larger than {max_bytes} bytes")
+        return content
+
     # ------------------------------------------------------------------ endpoints
 
     def new_releases(self, limit: int = 20) -> list[parsers.ListingItem]:

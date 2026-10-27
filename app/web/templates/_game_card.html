@@ -2,7 +2,7 @@
 {# The title link is stretched over the whole card (CSS ::after), so the whole card is clickable. #}
 <li class="tile">
   <article class="tile-card">
-    {{ cover(g.cover_url) }}
+    {{ cover(g | cover_src) }}
     <div class="tile-body">
       <h3 class="tile-title"><a class="tile-link" href="/games/{{ g.slug }}">{{ g.title }}</a></h3>
       <p class="tile-meta">{{ g.release_date | d }}</p>

@@ -9,7 +9,7 @@ from pathlib import Path
 import redis.asyncio as aioredis
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -17,6 +17,7 @@ from sse_starlette.sse import EventSourceResponse
 from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app import covers
 from app.config import get_settings
 from app.crawler.service import trigger_manual_run
 from app.db import get_db, session_scope
@@ -75,7 +76,7 @@ LABELS = {
     # error stages
     "listing": "список игр", "game": "страница игры", "store": "сохранение", "llm": "ИИ-сводка",
     "user_stats": "оценки игроков", "critic_reviews": "рецензии критиков",
-    "user_reviews": "отзывы игроков", "run": "запуск",
+    "user_reviews": "отзывы игроков", "run": "запуск", "cover": "обложка",
     # worker names
     "crawl": "сбор данных", "beat": "планировщик",
     # run notes
@@ -150,6 +151,12 @@ def _jw_media_id(url: str | None) -> str | None:
     return match.group(1) if match else None
 
 
+def _cover_src(game) -> str | None:
+    """The local copy of a game's cover when there is one, else the Metacritic URL."""
+    cover_file = getattr(game, "cover_file", None)
+    return f"/covers/{cover_file}" if cover_file else game.cover_url
+
+
 def _ucfirst(value) -> str:
     """Capitalise the first letter only (Jinja's `capitalize` lowercases the rest: "ИИ" -> "Ии")."""
     text = str(value)
@@ -174,7 +181,8 @@ def _score_class(value, kind: str = "meta") -> str:
 
 
 templates.env.filters.update(
-    dt=_fmt_dt, d=_fmt_date, ago=_ago, duration=_duration, score_class=_score_class, label=_label, plural=_plural, ucfirst=_ucfirst, jw_media_id=_jw_media_id
+    dt=_fmt_dt, d=_fmt_date, ago=_ago, duration=_duration, score_class=_score_class, label=_label, plural=_plural, ucfirst=_ucfirst, jw_media_id=_jw_media_id,
+    cover_src=_cover_src,
 )
 
 
@@ -368,6 +376,16 @@ def dashboard_json(db: Session = Depends(get_db)):
         "totals": s["totals"],
         "next_run": s["schedule"]["next_run"],
     }
+
+
+@app.get("/covers/{name}")
+def cover_file(name: str):
+    """Stored cover image. Names are content-addressed (hash of the source URL), so they never
+    change meaning and can be cached for a year."""
+    path = Path(get_settings().covers_dir) / name
+    if not covers.FILE_RE.match(name) or not path.is_file():
+        raise HTTPException(status_code=404, detail="Cover not found")
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 @app.get("/healthz")

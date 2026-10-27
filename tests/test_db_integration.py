@@ -261,3 +261,63 @@ def test_missing_game_is_an_html_page_for_browsers_and_json_for_apis(client):
 def test_cross_site_post_cannot_start_a_crawl(client):
     r = client.post("/runs", headers={"Sec-Fetch-Site": "cross-site"})
     assert r.status_code == 403
+
+
+# --------------------------------------------------------------------------- cover images
+
+
+def test_crawl_stores_the_cover_once(sessions, tmp_path, monkeypatch):
+    from app.config import get_settings
+    from app.crawler.runner import CrawlRunner
+
+    jpeg = b"\xff\xd8\xff\xe0" + b"\x00" * 64
+
+    class FakeMetacritic:
+        downloads = 0
+
+        def game(self, slug):
+            d = detail(slug, platforms=("PC",))
+            d.cover_url = "https://www.metacritic.com/a/img/catalog/x.jpg"
+            d.platforms[0].critic_review_count = d.platforms[0].user_review_count = 0
+            d.platforms[0].user_stats_on_page = True
+            return d
+
+        def get_bytes(self, url, max_bytes):
+            FakeMetacritic.downloads += 1
+            return jpeg
+
+    monkeypatch.setenv("COVERS_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    runner = CrawlRunner(get_settings(), FakeMetacritic(), sessions, lock=None, lock_token="t")
+    for _ in range(2):
+        assert runner._process_one(0, date(2026, 10, 27), "abyss-ring") in ("inserted", "updated")
+    with sessions() as s:
+        game = s.scalar(select(Game).where(Game.slug == "abyss-ring"))
+        assert game.cover_file and (tmp_path / game.cover_file).read_bytes() == jpeg
+    assert FakeMetacritic.downloads == 1
+
+
+def test_failed_cover_download_keeps_the_game(sessions, tmp_path, monkeypatch):
+    from app.config import get_settings
+    from app.crawler.runner import CrawlRunner
+    from app.models import CrawlError
+
+    class FakeMetacritic:
+        def game(self, slug):
+            d = detail(slug, platforms=("PC",))
+            d.cover_url = "https://www.metacritic.com/a/img/catalog/y.jpg"
+            d.platforms[0].critic_review_count = d.platforms[0].user_review_count = 0
+            d.platforms[0].user_stats_on_page = True
+            return d
+
+        def get_bytes(self, url, max_bytes):
+            return b"<html>blocked</html>"
+
+    monkeypatch.setenv("COVERS_DIR", str(tmp_path))
+    get_settings.cache_clear()
+    runner = CrawlRunner(get_settings(), FakeMetacritic(), sessions, lock=None, lock_token="t")
+    assert runner._process_one(0, date(2026, 10, 27), "abyss-ring") == "inserted"
+    with sessions() as s:
+        game = s.scalar(select(Game).where(Game.slug == "abyss-ring"))
+        assert game.cover_file is None and game.cover_url.endswith("y.jpg")
+        assert s.scalar(select(CrawlError.stage)) == "cover"

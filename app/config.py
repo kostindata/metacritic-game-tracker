@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     )
     playwright_enabled: bool = True
 
+    # Local copies of cover images (shared volume: written by the crawler, served by the web app)
+    covers_dir: str = "/data/covers"
+
     # Logging
     log_level: str = "INFO"
     log_format: str = "json"  # json | console

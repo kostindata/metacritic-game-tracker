@@ -22,7 +22,8 @@ RUN if [ "$INSTALL_PLAYWRIGHT" = "true" ]; then playwright install --with-deps c
 
 COPY . .
 
-RUN useradd --create-home appuser && chown -R appuser /app
+# /data/covers is a volume; creating it here gives a new volume the app user's ownership.
+RUN useradd --create-home appuser && mkdir -p /data/covers && chown -R appuser /app /data/covers
 USER appuser
 
 EXPOSE 8000

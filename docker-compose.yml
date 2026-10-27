@@ -11,6 +11,9 @@ x-app: &app
   environment:
     DATABASE_URL: postgresql+psycopg://mc:${POSTGRES_PASSWORD:-mc}@postgres:5432/mc
     REDIS_URL: redis://redis:6379/0
+  volumes:
+    # Cover images: downloaded by the crawler, served by the web app (app.covers)
+    - covers:/data/covers
   depends_on:
     postgres:
       condition: service_healthy
@@ -95,3 +98,4 @@ services:
 
 volumes:
   pgdata:
+  covers:

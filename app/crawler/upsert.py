@@ -19,7 +19,9 @@ def _max(values):
     return max(present) if present else None
 
 
-def upsert_game(session: Session, detail: GameDetail, now: datetime) -> tuple[Game, bool]:
+def upsert_game(
+    session: Session, detail: GameDetail, now: datetime, cover_file: str | None = None
+) -> tuple[Game, bool]:
     """Insert or update a game by slug. Returns (game, inserted).
 
     A platform whose user-score request failed this time keeps its stored user score and count,
@@ -30,6 +32,7 @@ def upsert_game(session: Session, detail: GameDetail, now: datetime) -> tuple[Ga
         title=detail.title,
         url=detail.url,
         cover_url=detail.cover_url,
+        cover_file=cover_file,
         description=detail.description,
         video_url=detail.video_url,
         developers=detail.developers,

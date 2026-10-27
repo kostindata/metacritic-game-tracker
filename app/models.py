@@ -28,6 +28,8 @@ class Game(Base):
     title: Mapped[str] = mapped_column(String(500))
     url: Mapped[str] = mapped_column(String(1000))
     cover_url: Mapped[str | None] = mapped_column(String(1000))
+    # Local copy of cover_url in settings.covers_dir (see app.covers); None = not downloaded.
+    cover_file: Mapped[str | None] = mapped_column(String(64))
     description: Mapped[str | None] = mapped_column(Text)
     video_url: Mapped[str | None] = mapped_column(String(1000))
     developers: Mapped[list[str]] = mapped_column(ARRAY(String), default=list, server_default="{}")

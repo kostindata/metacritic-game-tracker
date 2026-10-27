@@ -86,6 +86,10 @@ docker compose up --build
 
 Восстановление из копии: `zcat backups/<файл>.sql.gz | docker compose exec -T postgres psql -U mc -d mc`.
 
+Обложки игр хранятся на сервере (Docker-том `covers`) и скачиваются во время сбора. В резервную
+копию они не входят: при необходимости их можно скачать заново. Скачать недостающие обложки сразу,
+не дожидаясь сбора: `docker compose exec worker-crawl python -m app.covers`.
+
 ## Тесты
 
 ```bash

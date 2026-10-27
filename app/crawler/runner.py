@@ -4,12 +4,14 @@ from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from pathlib import Path
 
 from sqlalchemy import delete, exists, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
+from app.covers import ensure_cover
 from app.crawler.cursor import Cursor, OrderedProgress, WalkResult, crawl_day, ensure_current_day, walk_listing
 from app.crawler.upsert import KINDS, plan_summary, replace_reviews, upsert_game
 from app.logs import get_logger
@@ -301,10 +303,16 @@ class CrawlRunner:
                 record_error(s, run_id, slug, "game", f"{type(exc).__name__}: {exc}")
             return "failed"
 
+        cover_file = None
+        try:
+            cover_file = ensure_cover(self.client, Path(self.settings.covers_dir), fetched.detail.cover_url)
+        except Exception as exc:  # noqa: BLE001 - the page falls back to the Metacritic image
+            fetched.errors.append(("cover", f"{type(exc).__name__}: {exc}"))
+
         outdated: list[str] = []
         try:
             with self.sessions.begin() as s:
-                game, inserted = upsert_game(s, fetched.detail, self.now())
+                game, inserted = upsert_game(s, fetched.detail, self.now(), cover_file=cover_file)
                 for kind in KINDS:
                     reviews = fetched.reviews.get(kind)
                     if reviews is None:

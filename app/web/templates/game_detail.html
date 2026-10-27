@@ -6,7 +6,7 @@
 
 <article>
   <header class="hero">
-    {{ cover(game.cover_url, "Обложка: " ~ game.title, "large", eager=true) }}
+    {{ cover(game | cover_src, "Обложка: " ~ game.title, "large", eager=true) }}
     <div>
       <h1>{{ game.title }}</h1>
       {% if game.genres %}
